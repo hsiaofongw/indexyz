@@ -1,3 +1,5 @@
+# 读取 data 目录上的所有文件，生成摘要，放到 summaries 目录
+
 import os
 import jieba
 import numpy as np
