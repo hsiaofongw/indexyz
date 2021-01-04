@@ -82,12 +82,12 @@ def get_satisfied_indexes(term_indexes: pd.DataFrame) -> [int]:
 def correct_doc_matrix(
     term_indexes: pd.DataFrame, 
     selected_indexes: [int],
-    doc_matrix: [[int]]
+    doc_matrix: np.ndarray,
 ) -> Tuple[pd.DataFrame, List[List[int]]]:
 
     # 选取原先的 terms 的子集
     selected_terms = term_indexes.iloc[selected_indexes, :]
-    doc_matrix = doc_matrix[:, selected_indexes]
+    doc_matrix = doc_matrix[:, list(selected_indexes)]
 
     # 是否没有 doc 的坐标全为 0
     row_num_that_all_zeros = (np.sum(doc_matrix, axis = 1) == 0)
@@ -210,4 +210,18 @@ def do_query_by_words(
     article_indexes['match_val'] = cos_values
 
     # 展示搜索结果
-    return article_indexes.sort_values(by = 'match_val', ascending=False)
+    article_indexes = article_indexes.sort_values(by = 'match_val', ascending = False)
+
+    search_result = pd.DataFrame({
+        'article_name': article_indexes.iloc[:, 0],
+        'match_val': np.array(article_indexes.iloc[:, 2])
+    })
+
+    search_result = search_result.reset_index(drop=True)
+
+    # 限制展示的数量
+    result_display_limit_n = 10
+    if search_result.shape[0] > result_display_limit_n:
+        search_result = search_result.iloc[0:result_display_limit_n, :]
+
+    return search_result

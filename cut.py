@@ -76,7 +76,7 @@ def make_all_term_vector(all_term_stats: dict) -> [str]:
     return all_term_vector
 
 # 计算 term_doc_matrix
-def make_doc_matrix(article_stats: [dict], all_term_vector: [str]) -> [[int]]:
+def make_doc_matrix(article_stats: [dict], all_term_vector: [str]) -> np.ndarray:
     doc_matrix = list()
     for i in tqdm(range(len(article_stats))):
         stat_of_this_article = article_stats[i]
@@ -90,7 +90,7 @@ def make_doc_matrix(article_stats: [dict], all_term_vector: [str]) -> [[int]]:
         
         doc_matrix.append(doc_matrix_row)
     
-    return doc_matrix
+    return np.array(doc_matrix)
 
 # 构建文章名索引与单词索引
 def make_indexes(
