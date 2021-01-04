@@ -4,6 +4,7 @@ import json
 import analysis
 import cut
 import pkuseg
+from tabulate import tabulate
 
 def read_config(config_filename: str) -> Dict[str, any]:
     config_obj = None
@@ -49,7 +50,7 @@ def start_on_local_mode(data_folder: str):
     article_names = None
     article_contents = None
 
-    if load_articles_from == 'folder' or True:
+    if load_articles_from == 'folder':
 
         articles_path_full = os.path.join(
             data_folder_full,
@@ -57,11 +58,21 @@ def start_on_local_mode(data_folder: str):
         )
 
         print('文章文件夹为：' + articles_path_full)
-
         article_names, article_contents = cut.get_articles_from_folder(articles_path_full)
     
-    else:
+    elif load_articles_from == 'file':
 
+        articles_file = this_config['articles_file']
+
+        articles_file_path_full = os.path.join(
+            data_folder_full,
+            articles_file
+        )
+
+        print('文章读取自文件：' + articles_file_path_full)
+        article_names, article_contents = cut.get_articles_from_file(articles_file_path_full)
+
+    else:
         pass
 
     
@@ -117,12 +128,14 @@ def start_on_local_mode(data_folder: str):
         sentence = input('>>> ')
         words = cutter(sentence)
 
-        print(analysis.do_query_by_words(
+        query_result = analysis.do_query_by_words(
             words,
             article_indexes,
             doc_coords,
             vh, term_to_col_index
-        ))
+        )
+
+        print(tabulate(query_result, headers='keys', tablefmt='psql'))
 
     # print(term_indexes)
     # print(selected_indexes)

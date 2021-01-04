@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 from typing import AnyStr, Callable, Dict, Tuple
+import json
 
 # tuple.1 is article_names, tuple.2 is article_contents
 def get_articles_from_folder(foldername: str) -> ([str], [str]):
@@ -22,6 +23,32 @@ def get_articles_from_folder(foldername: str) -> ([str], [str]):
         article_names, 
         article_contents,
     )
+
+def get_articles_from_file(filename: str) -> ([str], [str]):
+
+    article_names = list()
+    article_contents = list()
+
+    with open(filename, 'r') as f:
+        this_data = json.load(f)
+        
+        if this_data is None:
+            raise
+
+        for entry in this_data:
+            article_name = entry['article_name']
+            article_content = entry['article_content']
+
+            article_content = article_name + ' ' + article_content
+
+            article_names.append(article_name)
+            article_contents.append(article_content)
+    
+    return (
+        article_names,
+        article_contents
+    )
+    
 
 # article_words 中的每一个元素是一个单词组成的列表，对应一篇文章
 def cut_articles(

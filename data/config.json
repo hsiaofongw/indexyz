@@ -3,5 +3,5 @@
 
     "articles_file": "articles.json",
 
-    "load_articles_from_file_or_folder": "folder"
+    "load_articles_from_file_or_folder": "file"
 }
