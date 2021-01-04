@@ -3,7 +3,7 @@ import os
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
-from typing import AnyStr, Callable, Dict
+from typing import AnyStr, Callable, Dict, Tuple
 
 seg = pkuseg.pkuseg()
 
@@ -73,10 +73,12 @@ def make_all_term_stats(article_stats: [dict]) -> Dict[str, int]:
     
     return all_term_stats
 
+# 将所有出现过的单词列成一个表
 def make_all_term_vector(all_term_stats: dict) -> [str]:
     all_term_vector = list(all_term_stats.keys())
     return all_term_vector
 
+# 计算 term_doc_matrix
 def make_doc_matrix(article_stats: [dict], all_term_vector: [str]) -> [[int]]:
     doc_matrix = list()
     for i in tqdm(range(len(article_stats))):
@@ -93,22 +95,27 @@ def make_doc_matrix(article_stats: [dict], all_term_vector: [str]) -> [[int]]:
     
     return doc_matrix
 
-def make_article_indexes(article_names: [str]) -> pd.DataFrame:
+# 构建文章名索引与单词索引
+def make_indexes(
+    article_names: [str],
+    all_term_vector: [str]
+) -> Tuple[pd.DataFrame, pd.DataFrame,]:
     article_indexes = pd.DataFrame({
         'article_name': article_names,
         'row_num_in_doc_matrix': range(len(article_names))
     })
 
-    return article_indexes
-
-def make_term_indexes(all_term_vector: [str]) -> pd.DataFrame:
     term_indexes = pd.DataFrame({
         'term': all_term_vector,
         'col_num_in_doc_matrix': range(len(all_term_vector))
     })
 
-    return term_indexes
+    return (
+        article_indexes,
+        term_indexes,
+    )
 
+# 将资料存储到磁盘
 def save_all_to_file(
 
     article_indexes: pd.DataFrame,
