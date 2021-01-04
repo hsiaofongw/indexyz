@@ -34,14 +34,14 @@ def cut_articles(
     article_words = list()
     for i in tqdm(range(len(article_contents))):
         article_content = article_contents[i]
-        words = seg.cut(article_content)
+        words = cutter(article_content)
         article_words.append(words)
     
     return article_words
 
 
 # 统计一个列表中各个元素出现的次数
-def counter(l: list) -> dict:
+def counter(l: list) -> Dict[str, int]:
     stats = dict()
     for i in range(len(l)):
         item = l[i]
