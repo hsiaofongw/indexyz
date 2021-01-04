@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from sklearn.cluster import AgglomerativeClustering
 from tqdm import tqdm
 import pkuseg
-from typing import Tuple
+from typing import Tuple, Callable, AnyStr, Dict
 
 # 读入必要的数据文件，一般只运行一次即可
 def load_data_from_file(
@@ -148,51 +148,68 @@ def lsa_analysis(tf_idf: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray
         u, s, vh, doc_coords,
     )
 
+# 把 term_indexes 转化为词典形式
+def make_term_to_col_index_mapper(term_indexes: pd.DataFrame) -> Dict[str, int]:
 
-# 接受用户输入
-query_terms = seg.cut('多边形')
-query_terms
-
-# 构建 query_row, 这个 query_row 相当于一个 doc
-query_row = np.array(range(doc_matrix.shape[1]))
-query_row[:] = 0
-query_row = np.reshape(a = query_row, newshape = (1, query_row.shape[0]))
-for term in query_terms:
-    if term in term_to_col_index:
-        col_index = term_to_col_index[term]
-        query_row[0, col_index] = 1
-
-# 是否可以进行搜索
-np.sum(query_row) > 0
-
-# 将 query_row 投影到 lsa 特征空间
-query_coord = np.matmul(query_row, vh.T)
-
-query_coord = query_coord[:, 0:doc_coords.shape[0]]
-doc_coords = doc_coords[:, 0:doc_coords.shape[0]]
-
-# 用这个函数计算两个向量的余弦值
-def cos_of_two_vector(x1, x2):
-    n_x1 = np.linalg.norm(x1)
-    n_x2 = np.linalg.norm(x2)
-    inner_prod = np.abs(np.sum(x1 * x2))
+    # 建立一个 term 到 子term_doc_matrix 的角标 的对应关系
+    term_to_col_index = dict()
+    for i in range(term_indexes.shape[0]):
+        term = term_indexes.iloc[i, 0]
+        col_index = term_indexes.iloc[i, 2]
+        term_to_col_index[term] = col_index
     
-    if n_x1 * n_x2 == 0:
-        n_x1 = n_x1 + (1E-10)
-        n_x2 = n_x2 + (1E-10)
+    return term_to_col_index
+
+# 通过关键词列表查询
+def do_query_by_words(
+    words: [str],
+    article_indexes: pd.DataFrame,
+    doc_coords: any, vh: any,
+    term_to_col_index_mapper: Dict[str, int]
+) -> pd.DataFrame:
+
+    query_terms = words
+
+    # 构建 query_row, 这个 query_row 相当于一个 doc
+
+    n_terms = terms_indexes.shape[0]
+    n_articles = article_indexes.shape[0]
+
+    query_row = np.zeros(shape = (1, n_terms))
+    for term in query_terms:
+        if term in term_to_col_index:
+            col_index = term_to_col_index[term]
+            query_row[0, col_index] = 1
+
+    # 将 query_row 投影到 lsa 特征空间
+    query_coord = np.matmul(query_row, vh.T)
+
+    # 截断
+    query_coord = query_coord[:, 0:doc_coords.shape[0]]
+    doc_coords = doc_coords[:, 0:doc_coords.shape[0]]
+
+    # 用这个函数计算两个向量的余弦值
+    def cos_of_two_vector(x1: np.ndarray, x2: np.ndarray) -> any:
+        n_x1 = np.linalg.norm(x1)
+        n_x2 = np.linalg.norm(x2)
+        inner_prod = np.abs(np.sum(x1 * x2))
         
-    return inner_prod / (n_x1 * n_x2)
+        # 为了防止分母等于 0
+        if n_x1 * n_x2 == 0:
+            n_x1 = n_x1 + (1E-10)
+            n_x2 = n_x2 + (1E-10)
+            
+        return inner_prod / (n_x1 * n_x2)
 
-# 计算 query_coord (它是查询关键字组成的 word_vector 的 lsa 特征空间的投影) 与
-# doc 在特征空间中的投影的余弦值，以此来判断接近程度
-cos_values = list()
-for i in range(doc_coords.shape[0]):
-    doc_coord = doc_coords[i, :]
-    cos_value = cos_of_two_vector(query_coord, doc_coord)
-    cos_values.append(cos_value)
+    # 比较 query_coord 与每一个 doc_coord 的余弦值(余弦值越解决 1 越相似)
+    cos_values = list()
+    for i in range(doc_coords.shape[0]):
+        doc_coord = doc_coords[i, :]
+        cos_value = cos_of_two_vector(query_coord, doc_coord)
+        cos_values.append(cos_value)
 
-# 更新匹配度那一列
-articles['match_val'] = cos_values
+    # 更新匹配度那一列
+    article_indexes['match_val'] = cos_values
 
-# 展示搜索结果
-articles.sort_values(by = 'match_val', ascending=False)
+    # 展示搜索结果
+    return article_indexes.sort_values(by = 'match_val', ascending=False)
