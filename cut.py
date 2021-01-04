@@ -1,11 +1,8 @@
-import pkuseg
 import os
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
 from typing import AnyStr, Callable, Dict, Tuple
-
-seg = pkuseg.pkuseg()
 
 # tuple.1 is article_names, tuple.2 is article_contents
 def get_articles_from_folder(foldername: str) -> ([str], [str]):

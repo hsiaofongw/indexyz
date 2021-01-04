@@ -2,10 +2,7 @@ import pandas as pd
 import numpy as np
 import re
 import time
-import matplotlib.pyplot as plt
-from sklearn.cluster import AgglomerativeClustering
 from tqdm import tqdm
-import pkuseg
 from typing import Tuple, Callable, AnyStr, Dict, List
 import random
 
