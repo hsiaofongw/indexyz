@@ -1,7 +1,8 @@
 termdocmatrix
 summaries
 .ipynb_checkpoints
-data
 Untitled.ipynb
 *.txt
 __pycache__
+data/articles
+data/articles*

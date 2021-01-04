@@ -1,0 +1,7 @@
+{
+    "articles_dir": "articles",
+
+    "articles_file": "articles.json",
+
+    "load_articles_from_file_or_folder": "folder"
+}
