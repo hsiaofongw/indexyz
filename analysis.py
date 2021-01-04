@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 from sklearn.cluster import AgglomerativeClustering
 from tqdm import tqdm
 import pkuseg
-from typing import Tuple, Callable, AnyStr, Dict
+from typing import Tuple, Callable, AnyStr, Dict, List
+import random
 
 # 读入必要的数据文件，一般只运行一次即可
 def load_data_from_file(
@@ -85,7 +86,7 @@ def correct_doc_matrix(
     term_indexes: pd.DataFrame, 
     selected_indexes: [int],
     doc_matrix: [[int]]
-) -> Tuple[pd.DataFrame, [[int]]]:
+) -> Tuple[pd.DataFrame, List[List[int]]]:
 
     # 选取原先的 terms 的子集
     selected_terms = term_indexes.iloc[selected_indexes, :]
@@ -165,14 +166,14 @@ def do_query_by_words(
     words: [str],
     article_indexes: pd.DataFrame,
     doc_coords: any, vh: any,
-    term_to_col_index_mapper: Dict[str, int]
+    term_to_col_index: Dict[str, int]
 ) -> pd.DataFrame:
 
     query_terms = words
 
     # 构建 query_row, 这个 query_row 相当于一个 doc
 
-    n_terms = terms_indexes.shape[0]
+    n_terms = len(term_to_col_index.keys())
     n_articles = article_indexes.shape[0]
 
     query_row = np.zeros(shape = (1, n_terms))
