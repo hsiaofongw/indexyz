@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
+from typing import AnyStr, Callable, Dict
 
 seg = pkuseg.pkuseg()
 
@@ -20,9 +21,16 @@ def get_articles_from_folder(foldername: str) -> ([str], [str]):
         file.close()
         article_contents.append(article_content)
     
-    return (article_names, article_contents)
+    return (
+        article_names, 
+        article_contents,
+    )
 
-def cut_articles(articles: [str]) -> [[str]]:
+# article_words 中的每一个元素是一个单词组成的列表，对应一篇文章
+def cut_articles(
+    article_contents: [str], 
+    cutter: Callable[[str], AnyStr]
+) -> [[str]]:
     article_words = list()
     for i in tqdm(range(len(article_contents))):
         article_content = article_contents[i]
@@ -31,6 +39,8 @@ def cut_articles(articles: [str]) -> [[str]]:
     
     return article_words
 
+
+# 统计一个列表中各个元素出现的次数
 def counter(l: list) -> dict:
     stats = dict()
     for i in range(len(l)):
@@ -42,14 +52,16 @@ def counter(l: list) -> dict:
     
     return stats
 
-def do_stats(article_words: [[str]]) -> [dict[str, int]]:
+# 统计每篇文章的词频
+def do_stats(article_words: [[str]]) -> [Dict[str, int]]:
     article_stats = list()
     for i in tqdm(range(len(article_words))):
         article_stats.append(counter(article_words[i]))
     
     return article_stats
 
-def make_all_term_stats(article_stats: [dict]) -> dict[str, int]:
+# 统计每一个出现过的单词的出现频数
+def make_all_term_stats(article_stats: [dict]) -> Dict[str, int]:
     all_term_stats = dict()
     for i in tqdm(range(len(article_stats))):
         article_stat = article_stats[i]
