@@ -8,8 +8,6 @@ from tabulate import tabulate
 
 def start_on_local_mode(article_names, article_contents):
 
-    article_names, article_contents = None, None
-    
     # 加载分词器
     print('正在加载分词器……')
     seg = pkuseg.pkuseg()

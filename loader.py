@@ -106,5 +106,3 @@ def read_articles_from_txt(txtPath: str) -> Tuple[List[str], List[str]]:
         article_names,
         article_contents,
     )
-
-read_articles_from_txt('rmrb.txt')
