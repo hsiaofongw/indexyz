@@ -6,76 +6,12 @@ import cut
 import pkuseg
 from tabulate import tabulate
 
-def read_config(config_filename: str) -> Dict[str, any]:
-    config_obj = None
-    with open(config_filename, 'r') as f:
-        config_obj = json.load(f)
+def start_on_local_mode(article_names, article_contents):
 
-    if config_obj is None:
-        raise
-
-    articles_dir = 'articles'
-    articles_file = 'articles.json'
-    load_articles_from = 'folder'
-
-    if 'articles_dir' in config_obj:
-        articles_dir = config_obj['articles_dir']
+    article_names, article_contents = None, None
     
-    if 'articles_file' in config_obj:
-        articles_file = config_obj['articles_file']
-    
-    if 'load_articles_from_file_or_folder' in config_obj:
-        load_articles_from = config_obj['load_articles_from_file_or_folder']
-
-    return {
-        'articles_dir': articles_dir,
-
-        'articles_file': articles_file,
-
-        'load_articles_from': load_articles_from
-    }
-
-    
-    
-def start_on_local_mode(data_folder: str):
-
-    data_folder_full = os.path.abspath(data_folder)
-    config_file_full_path = os.path.join(data_folder_full, 'config.json')
-
-    this_config = read_config(config_file_full_path)
-
-    load_articles_from = this_config['load_articles_from']
-
-    articles_dir = this_config['articles_dir']
-    article_names = None
-    article_contents = None
-
-    if load_articles_from == 'folder':
-
-        articles_path_full = os.path.join(
-            data_folder_full,
-            articles_dir
-        )
-
-        print('文章文件夹为：' + articles_path_full)
-        article_names, article_contents = cut.get_articles_from_folder(articles_path_full)
-    
-    elif load_articles_from == 'file':
-
-        articles_file = this_config['articles_file']
-
-        articles_file_path_full = os.path.join(
-            data_folder_full,
-            articles_file
-        )
-
-        print('文章读取自文件：' + articles_file_path_full)
-        article_names, article_contents = cut.get_articles_from_file(articles_file_path_full)
-
-    else:
-        pass
-
-    
+    # 加载分词器
+    print('正在加载分词器……')
     seg = pkuseg.pkuseg()
     cutter = lambda sentence: seg.cut(sentence)
     
