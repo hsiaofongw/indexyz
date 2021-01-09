@@ -1,11 +1,9 @@
 termdocmatrix
 summaries
 .ipynb_checkpoints
-Untitled.ipynb
 *.txt
 __pycache__
 data/articles
-*.ipynb
 mongodb
 mongodbtest.py
 testdata.json
