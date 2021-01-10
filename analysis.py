@@ -15,7 +15,11 @@ class ArticleStats:
     
     def __init__(self):
         
-        self.article_names = list()
+        # article -> index
+        self.article_index = dict()
+
+        # index -> article
+        self.index_article = dict()
         
         # term -> index
         self.term_index = dict()
@@ -24,28 +28,122 @@ class ArticleStats:
         self.index_term = dict()
         
         # term_document_matrix, arguments for scipy.sparse.csr_matrix
-        self.term_document_matrix_data = list()
-        self.term_document_matrix_indptr = [0]
-        self.term_document_matrix_indices = list()
+        self.tdm_data = list()
+        self.tdm_indptr = [0]
+        self.tdm_indices = list()
+    
+    # 给 term_document_matrix 添加新的一行
+    def append_new_row_in_term_document_matrix(self, term_indices: List[str]):
+
+        self.tdm_data = self.tdm_data + [1 for i in range(len(term_indices))]
+        self.tdm_indices = self.tdm_indices + term_indices
+        self.tdm_indptr.append(len(term_indices))
+    
+    # 为每一个 term 分配一个编号！
+    def get_term_indexes(self, terms: List[str]):
+
+        # 要返回的每一个 term 的编号
+        indices_of_terms = list()
+
+        for term in terms:
+
+            # 如果这个 term 之前已经遇到过了
+            if term in self.term_index:
+
+                # 那么取出它的编号
+                index_of_this_term = self.term_index[term]
+
+            # 否则，假如说这个 term 是新的
+            else:
+
+                # 那么给它分配一个编号
+                index_of_this_term = len(self.term_index)
+
+                # 然后更新 term -> index 的对应关系
+                self.term_index[term] = index_of_this_term
+
+                # 然后更新 index -> term 的对应关系
+                self.index_term[index_of_this_term] = term
+
+            # 并且放入那个篮子里
+            indices_of_terms.append(index_of_this_term)
+        
+        return indices_of_terms
+
+    def update_term_document_matrix_row(self, row_index: int, term_indices: List[int]) -> None:
+
+        # 首先来看下是个什么样的情况
+        length_of_updating_row = self.tdm_indptr[row_index+1] - self.tdm_indptr[row_index]
+        length_of_new_row = len(term_indices)
+
+        # 如果新的这行比原来那行长
+        if length_of_new_row > length_of_updating_row:
+
+            # 那么就要开辟一些空间
+            spaces_to_extend = length_of_new_row - length_of_updating_row
+            for i in range(spaces_to_extend):
+                self.tdm_indices.insert(self.tdm_indptr[row_index]+1, 0)
+                self.tdm_data.insert(self.tdm_indptr[row_index]+1, 1)
+
+        # 如果新的这行比原来那行短
+        elif length_of_new_row < length_of_updating_row:
+
+            # 那么就要压缩一些空间
+            spaces_to_squeeze = length_of_updating_row - length_of_new_row
+            i = len(self.tdm_indptr) - 1
+            while i > row_index:
+                self.tdm_indptr[i] = self.tdm_indptr[i] - spaces_to_squeeze
+                i = i - 1
+            
+            del self.tdm_indices[(len(self.tdm_indices)-spaces_to_squeeze):len(self.tdm_indices)]
+            del self.tdm_data[(len(self.tdm_data)-spaces_to_squeeze):len(self.tdm_data)]
+
+        # 如果新的这行和原来那行一样长
+        else:
+
+            # 那就没那么多花样
+            pass
+        
+        # 现在正式开始更新 indices 
+        self.tdm_indices[self.tdm_indptr[row_index]:self.tdm_indptr[row_index+1]] = term_indices
+
     
     # 用一篇文章更新 term-document-matrix
     def add_article(self, article: Article):
         
-        self.article_names.append(article.name)
+        if article.name in self.article_index:
+
+            # 这时这篇文章已经添加过了，所以我们需要更新 term_document_matrix
+            # 怎么更新呢？
+
+            # 首先确定要更新 term_document_matrix 的哪一行
+            row_index = self.article_index[article.name]
+
+            # 然后确定那一行要更新成什么样的值
+            that_indices = self.get_term_indexes(article.terms)
+
+            # 确定好后就去更新吧！
+            self.update_term_document_matrix_row(row_index, that_indices)
+
+        else:
+
+            # 这说明这篇文章之前还没有被添加进来过
+
+            # 那就先为这篇文章分配一个编号
+            id_of_this_article = len(self.article_index)
+
+            # 然后更新 article_name -> index 的映射
+            self.article_index[article.name] = id_of_this_article
+
+            # 然后更新 index -> article_name 的映射
+            self.index_article[id_of_this_article] = article.name
+
+            # 并且正常计算 term_document_matrix 的新的一行
+            that_indices = self.get_term_indexes(article.terms)
+
+            # 并且正常更新 term_index 与 index_term
+            self.append_new_row_in_term_document_matrix(that_indices)
         
-        for term in article.terms:
-            
-            index_of_this_term = self.term_index.setdefault(
-                term, 
-                len(self.term_index)
-            )
-            
-            self.index_term[index_of_this_term] = term
-            
-            self.term_document_matrix_indices.append(index_of_this_term)
-            self.term_document_matrix_data.append(1)
-        
-        self.term_document_matrix_indptr.append(len(self.term_document_matrix_indices))
     
     def add_articles(self, articles: List[Article]):
         for i in tqdm(range(len(articles))):
@@ -55,9 +153,9 @@ class ArticleStats:
     # 获取 term-document-matrix 的稀疏矩阵表示
     def get_term_document_matrix(self):
         
-        data = self.term_document_matrix_data
-        indices = self.term_document_matrix_indices
-        indptr = self.term_document_matrix_indptr
+        data = self.tdm_data
+        indices = self.tdm_indices
+        indptr = self.tdm_indptr
         
         return csr_matrix((data, indices, indptr), dtype=int)
     
