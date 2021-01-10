@@ -6,7 +6,7 @@ from random import randint
 from tqdm import tqdm
 
 class Article:
-        
+
     def __init__(self, name: str = '', terms: List[str] = []):
         self.name = name
         self.terms = terms
@@ -42,9 +42,9 @@ class ArticleStats:
     
     # 为每一个 term 分配一个编号！
     def get_term_indexes(self, terms: List[str]):
-
         # 要返回的每一个 term 的编号
         indices_of_terms = list()
+        index_of_this_term: int = 0
 
         for term in terms:
 
@@ -189,20 +189,36 @@ class ArticleStats:
 
 # 提供一套分析工具用于从 term_document_matrix 中发掘信息
 class Analyzer:
-    
-    def __init__(self, term_document_matrix: np.array):
+
+    # term document matrix
+    doc_matrix: csr_matrix = csr_matrix((0, 0))
+
+    # term frequency
+    tf: csr_matrix = csr_matrix((0, 0))
+
+    # inverse document frequency
+    idf: np.ndarray = np.array([])
+
+    # tf * idf
+    tf_idf: csr_matrix = csr_matrix((0, 0))
+
+    # svd values
+    svd_u: np.ndarray = np.array([])
+    svd_s: np.ndarray = np.array([])
+    svd_vh: np.ndarray = np.array([])
+    doc_coords: np.ndarray = np.array([])
+
+    def __init__(self, term_document_matrix: csr_matrix):
         self.doc_matrix = term_document_matrix
     
     # compute term frequency 
-    def compute_tf(self) -> np.ndarray:
+    def compute_tf(self) -> None:
         
         doc_matrix = self.doc_matrix
-        tf = doc_matrix.multiply(1/doc_matrix.sum(axis=1))
+        self.tf = doc_matrix.multiply(1/doc_matrix.sum(axis=1))
         
-        return tf
-    
     # compute inverse document frequency
-    def compute_idf(self) -> np.ndarray:
+    def compute_idf(self) -> None:
         
         doc_matrix = self.doc_matrix
         
@@ -219,35 +235,32 @@ class Analyzer:
             n_y.append(y)
         
         col_indexes, non_zeros_count = np.unique(n_y, return_counts=True)
-        idf = np.log(doc_matrix.shape[0]/non_zeros_count)
-        
-        return idf
+
+        self.idf = np.log(doc_matrix.shape[0]/non_zeros_count)
             
-    def compute_tf_idf(self):
+    def compute_tf_idf(self) -> None:
         
         tf = self.compute_tf()
         idf = self.compute_idf()
         
-        tf_idf = tf.multiply(idf)
+        self.tf_idf = tf.multiply(idf)
         
-        return tf_idf
-        
-    def compute_svd_from_tf_idf(self, k = 0):
+    def compute_svd_from_tf_idf(self, k = 0) -> None:
 
-        tf_idf = self.compute_tf_idf()
+        tf_idf = self.tf_idf
 
         if k == 0:
             k = min(tf_idf.shape)-1
         
         u, s, vh = svds(self.doc_matrix, k = k)
         
-        self.svd_u = u
-        self.svd_s = s
-        self.svd_vh = vh
-        
-        self.doc_coords = np.matmul(self.svd_u, np.diag(self.svd_s))
+        doc_coords = np.matmul(self.svd_u, np.diag(self.svd_s))
+        u, s, vh, doc_coords
+
+        self.svd_u, self.svd_s, self.svd_vh = u, s, vh
+        self.doc_coords = doc_coords
     
-    def to_feature_coord(self, origin_coord):
+    def to_feature_coord(self, origin_coord: np.ndarray) -> np.ndarray:
         
         origin_coord = np.reshape(origin_coord, newshape=(1, self.svd_vh.T.shape[0],))
         feature_coord = np.matmul(origin_coord, self.svd_vh.T)
@@ -259,7 +272,9 @@ class Analyzer:
         return abs(np.inner(v1, v2))/(np.linalg.norm(v1)*np.linalg.norm(v2))
     
     # (indexes, cosine_values, )
-    def find_nearest(self, input_feature: np.ndarray):
+    def find_nearest(self, input_feature: np.ndarray) -> Tuple[
+        List[int], List[float]
+    ]:
         
         cosine_values = list()
         
