@@ -11,6 +11,7 @@ class Article:
         self.name = name
         self.terms = terms
 
+# 主要使命，根据每一篇 article 所包含的 terms 计算出 term_document_matrix
 class ArticleStats:
     
     def __init__(self):
@@ -35,8 +36,8 @@ class ArticleStats:
     # 给 term_document_matrix 添加新的一行
     def append_new_row_in_term_document_matrix(self, term_indices: List[str]):
 
-        self.tdm_data = self.tdm_data + [1 for i in range(len(term_indices))]
         self.tdm_indices = self.tdm_indices + term_indices
+        self.tdm_data = self.tdm_data + [1 for i in range(len(term_indices))]
         self.tdm_indptr.append(len(term_indices))
     
     # 为每一个 term 分配一个编号！
@@ -107,6 +108,11 @@ class ArticleStats:
         # 现在正式开始更新 indices 
         self.tdm_indices[self.tdm_indptr[row_index]:self.tdm_indptr[row_index+1]] = term_indices
 
+        # 如果新的这行是空的
+        if self.tdm_indptr[row_index] == self.tdm_indptr[row_index+1]:
+            # 那就干脆删除这行吧！
+            del self.tdm_indptr[row_index]
+
     
     # 用一篇文章更新 term-document-matrix
     def add_article(self, article: Article):
@@ -159,46 +165,6 @@ class ArticleStats:
         
         return csr_matrix((data, indices, indptr), dtype=int)
     
-    # 计算 tf
-    def get_tf(self):
-        
-        doc_matrix = self.get_term_document_matrix()
-        tf = doc_matrix.multiply(1/doc_matrix.sum(axis=1))
-        
-        return tf
-    
-    # 计算 idf
-    def get_idf(self):
-        
-        doc_matrix = self.get_term_document_matrix()
-        
-        # (n_x[0], n_y[0]), (n_x[1], n_y[2]), ... 表示非零元素坐标
-        n_x, n_y = doc_matrix.nonzero()
-        
-        # 去重
-        s = set()
-        for j in range(len(n_x)):
-            s.add((n_x[j], n_y[j],))
-        
-        n_y = list()
-        for x, y in s:
-            n_y.append(y)
-        
-        col_indexes, non_zeros_count = np.unique(n_y, return_counts=True)
-        idf = np.log(doc_matrix.shape[0]/non_zeros_count)
-        
-        return idf
-            
-    # 计算 tf-idf
-    def get_tf_idf(self):
-        
-        tf = self.get_tf()
-        idf = self.get_idf()
-        
-        tf_idf = tf.multiply(idf)
-        
-        return tf_idf
-    
     # term_indexes: { 'a': 10, 'b': 2, 'c': 9, 'e': 7 }
     # terms:   [ 'c', 'a',  'a', 'b', 'b', 'e', 'b' ]
     # indexes: [  9,  10,   10,   2,   2,   7,   2  ]
@@ -221,15 +187,57 @@ class ArticleStats:
         
         return new_row.toarray()
 
-class LatentSemanticAnalyzer:
+# 提供一套分析工具用于从 term_document_matrix 中发掘信息
+class Analyzer:
     
-    def __init__(self, term_document_matrix):
-        self.doc_matrix = term_document_matrix.astype(np.float64)
-        self.perform_svd()
+    def __init__(self, term_document_matrix: np.array):
+        self.doc_matrix = term_document_matrix
+    
+    # compute term frequency 
+    def compute_tf(self) -> np.ndarray:
         
-    def perform_svd(self, k = 0):
+        doc_matrix = self.doc_matrix
+        tf = doc_matrix.multiply(1/doc_matrix.sum(axis=1))
+        
+        return tf
+    
+    # compute inverse document frequency
+    def compute_idf(self) -> np.ndarray:
+        
+        doc_matrix = self.doc_matrix
+        
+        # (n_x[0], n_y[0]), (n_x[1], n_y[2]), ... 表示非零元素坐标
+        n_x, n_y = doc_matrix.nonzero()
+        
+        # 去重
+        s = set()
+        for j in range(len(n_x)):
+            s.add((n_x[j], n_y[j],))
+        
+        n_y = list()
+        for x, y in s:
+            n_y.append(y)
+        
+        col_indexes, non_zeros_count = np.unique(n_y, return_counts=True)
+        idf = np.log(doc_matrix.shape[0]/non_zeros_count)
+        
+        return idf
+            
+    def compute_tf_idf(self):
+        
+        tf = self.compute_tf()
+        idf = self.compute_idf()
+        
+        tf_idf = tf.multiply(idf)
+        
+        return tf_idf
+        
+    def compute_svd_from_tf_idf(self, k = 0):
+
+        tf_idf = self.compute_tf_idf()
+
         if k == 0:
-            k = min(self.doc_matrix.shape)-1
+            k = min(tf_idf.shape)-1
         
         u, s, vh = svds(self.doc_matrix, k = k)
         
@@ -256,7 +264,7 @@ class LatentSemanticAnalyzer:
         cosine_values = list()
         
         for d in self.doc_coords:
-            cos_value = LatentSemanticAnalyzer.cos_of_two_vector(d, input_feature)
+            cos_value = Analyzer.cos_of_two_vector(d, input_feature)
             cosine_values.append(cos_value)
         
         indexes = list(range(len(self.doc_coords)))
