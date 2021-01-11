@@ -224,6 +224,8 @@ class Analyzer:
         
         # (n_x[0], n_y[0]), (n_x[1], n_y[2]), ... 表示非零元素坐标
         n_x, n_y = doc_matrix.nonzero()
+        print("n_x %s" % (n_x, ))
+        print("n_y %s" % (n_y, ))
         
         # 去重
         s = set()
@@ -233,6 +235,7 @@ class Analyzer:
         n_y = list()
         for x, y in s:
             n_y.append(y)
+        print("n_y %s" %(n_y, ))
         
         col_indexes, non_zeros_count = np.unique(n_y, return_counts=True)
 
@@ -240,10 +243,13 @@ class Analyzer:
             
     def compute_tf_idf(self) -> None:
         
-        tf = self.compute_tf()
-        idf = self.compute_idf()
+        tf = self.tf
+        idf = self.idf
+
+        print(tf.shape)
+        print(idf.shape)
         
-        self.tf_idf = tf.multiply(idf)
+        self.tf_idf: csr_matrix = tf.multiply(idf)
         
     def compute_svd_from_tf_idf(self, k = 0) -> None:
 
