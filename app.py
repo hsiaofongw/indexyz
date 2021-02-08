@@ -4,36 +4,43 @@ from analysis import NameSpace as QuerySpace
 from analysis import compute_tf_idf
 from scipy.sparse.linalg import svds
 from fastapi.encoders import jsonable_encoder
-from fastapi import FastAPI, status
+from fastapi import FastAPI, status, Response
 from model import *
+from analysis import Searcher
+import numpy as np
+from typing import Dict
+from math import isnan
 
 from datetime import datetime
 
-global_state = dict()
-global_state['count'] = 0
+class GlobalState:
 
-def get_db():
-    dbname = "indexyz"
-    client = pymongo.MongoClient(f"mongodb://127.0.0.1/{dbname}")
-    db = client.indexyz
-    return db
+    def __init__(self) -> None:
+        self.started_at = datetime.utcnow()
+        self.request_counts = 0
+        self.query_objects: List[Searcher] = []
+
+    def get_db(self):
+        dbname = "indexyz"
+        client = pymongo.MongoClient(f"mongodb://127.0.0.1/{dbname}")
+        db = client.indexyz
+        return db
+
+state = GlobalState()
 
 app = FastAPI()
 
 @app.get("/status")
 async def get_status():
 
-    global global_state
-    global_state['count'] = global_state['count'] + 1
-
     return {
-        "count": global_state['count']
+        "started_at": str(state.started_at)
     }
 
 @app.post("/namespaces/", status_code=status.HTTP_201_CREATED)
 async def create_namespace(ns: NameSpace):
 
-    db = get_db()
+    db = state.get_db()
     namespaces = db.namespaces
     ns = jsonable_encoder(ns)
 
@@ -48,23 +55,22 @@ async def create_namespace(ns: NameSpace):
     tf_idf = compute_tf_idf(doc_matrix)
     u, s, vh = svds(tf_idf, k=min(tf_idf.shape)-1)
 
-    u = u.tolist()
-    s = s.tolist()
-    vh = vh.tolist()
     term_index = query_space.term_index
     index_term = query_space.index_term
     article_index = query_space.article_index
     index_article = query_space.index_article
 
-    global global_state
+    query_object = Searcher(**{
+        'svd_u': u,
+        'svd_s': s,
+        'svd_vh': vh,
+        'term_index': term_index,
+        'index_term': index_term,
+        'article_index': article_index,
+        'index_article': index_article
+    })
 
-    global_state['query_object']['u'] = u
-    global_state['query_object']['s'] = s
-    global_state['query_object']['vh'] = vh
-    global_state['query_object']['term_index'] = term_index
-    global_state['query_object']['index_term'] = index_term
-    global_state['query_object']['article_index'] = article_index
-    global_state['query_object']['index_article'] = index_article
+    state.query_objects.append(query_object)
 
     now = datetime.utcnow()
     ns['created_at'] = now
@@ -76,21 +82,43 @@ async def create_namespace(ns: NameSpace):
     }
 
 @app.delete("/namespaces/{name_of_namespace}")
-async def delete_namespace():
+async def delete_namespace_by_name(name_of_namespace: str):
+
+    db = state.get_db()
+    namespaces = db.namespaces
+    result = namespaces.delete_one({
+        'name_of_namespace': name_of_namespace
+    })
 
     return {
         "message": "namespace deleted.",
-        "name_of_namespace": "name"
+        "deleted_count": result.deleted_count,
+        "name_of_namespace": name_of_namespace
     }
 
-@app.get("/namespaces/{name_of_namespace}")
-async def make_query_by_words(name_of_namespace: str, query: Query):
+@app.post("/")
+async def make_query_by_words(words_query: WordsQuery, response: Response):
+
+    # pass
+    if len(state.query_objects) == 0:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {
+            'message': 'no query object available, please upload an namespace.'
+        }
+    
+    query_object = state.query_objects[-1]
+    q = query_object.make_query(words_query.words)
+    indexes, cosines =  query_object.sort_index_by_cosine_similarity(q)
+    name_of_entries = [query_object.index_article[i] for i in indexes.tolist()]
+    cosines = cosines.tolist()
+    cosines = [0 if isnan(x) else x for x in cosines]
+    
+    response.status_code = status.HTTP_200_OK
 
     result = {
-        "words": query.words,
-        "sentence": query.sentence,
-        "name_of_entry": ["aa", "b1", "c", "d2", "e4"],
-        "cosine": [0.9, 0.8, 0.7, 0.6, 0.4]
+        "words": words_query.words,
+        "name_of_entries": name_of_entries,
+        "cosines": cosines
     }
 
     return result

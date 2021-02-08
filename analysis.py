@@ -136,11 +136,19 @@ class Searcher:
         self,
         svd_u: np.ndarray,
         svd_s: np.ndarray,
-        svd_vh: np.ndarray
+        svd_vh: np.ndarray,
+        term_index: Dict[str, int],
+        index_term: Dict[int, str],
+        article_index: Dict[str, int],
+        index_article: Dict[int, str]
     ) -> None:
         self.u = svd_u.copy()
         self.s = np.diag(svd_s)
         self.vh = svd_vh.copy()
+        self.term_index = term_index
+        self.index_term = index_term
+        self.article_index = article_index
+        self.index_article = index_article
 
         self.doc_coords = self.u @ self.s
     
@@ -168,8 +176,9 @@ class Searcher:
             cosines[sort_indexes],
         )
         
-    def make_query(self, terms: List[str], term_index: Dict[str, int]) -> np.ndarray:
-        query_term_indexes = [term_index.get(term, 0) for term in terms]
+    def make_query(self, terms: List[str]) -> np.ndarray:
+
+        query_term_indexes = [self.term_index.get(term, 0) for term in terms]
         query_row = np.zeros(shape=(1, self.vh.shape[1],), dtype=np.float32)
         query_row[0, query_term_indexes] = 1
         query_row = query_row @ self.vh.T
