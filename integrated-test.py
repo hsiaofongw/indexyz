@@ -21,3 +21,5 @@ term_document_matrix = stats.get_term_document_matrix()
 print('计算 Tf-Idf')
 lsa = Analyzer(term_document_matrix)
 lsa.compute_tf_idf()
+
+indexes = stats.get_term_indexes(['aa', 'ac'])
