@@ -40,7 +40,7 @@ def read_articles_from_folder(folder: str) -> Tuple[List[str], List[str]]:
         article_contents,
     )
 
-def read_articles_from_json(jsonPath: str) -> Tuple[List[str], List[str]]:
+def read_articles_from_json(jsonPath: str) -> Tuple[List[str], List[List[str]]]:
 
     article_names = list()
     article_contents = list()
@@ -72,7 +72,7 @@ def read_articles_from_json(jsonPath: str) -> Tuple[List[str], List[str]]:
         article_contents,
     )
 
-def read_articles_from_txt(txtPath: str) -> Tuple[List[str], List[str]]:
+def read_articles_from_txt(txtPath: str) -> Tuple[List[str], List[List[str]]]:
 
     if not os.path.isfile(txtPath):
         print('%s is not a text file, omitted.' % txtPath)

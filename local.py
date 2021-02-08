@@ -2,7 +2,7 @@ import sys
 import pandas as pd
 from tabulate import tabulate
 from cut import cutter, make_articles_from_contents
-from analysis import ArticleStats, Analyzer
+from analysis import NameSpace, Analyzer
 
 def start_on_local_mode(article_names, article_contents):
 
@@ -10,7 +10,7 @@ def start_on_local_mode(article_names, article_contents):
     articles = make_articles_from_contents(article_names, article_contents)
 
     print("正在构造 term-document-matrix ...")
-    stats = ArticleStats()
+    stats = NameSpace()
     stats.add_articles(articles)
 
     print("正在初始化分析工具……")

@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.core.numeric import indices
 from scipy.sparse.linalg import svds
 from typing import Tuple, List
 from scipy.sparse import csr_matrix
@@ -11,8 +12,8 @@ class Article:
         self.name = name
         self.terms = terms
 
-# 主要使命，根据每一篇 article 所包含的 terms 计算出 term_document_matrix
-class ArticleStats:
+# 根据每一篇 article 所包含的 terms 计算出 term_document_matrix
+class NameSpace:
     
     def __init__(self):
         
@@ -38,7 +39,7 @@ class ArticleStats:
 
         self.tdm_indices = self.tdm_indices + term_indices
         self.tdm_data = self.tdm_data + [1 for i in range(len(term_indices))]
-        self.tdm_indptr.append(len(term_indices))
+        self.tdm_indptr.append(self.tdm_indptr[-1]+len(term_indices))
     
     # 为每一个 term 分配一个编号！
     def get_term_indexes(self, terms: List[str]):
@@ -71,84 +72,23 @@ class ArticleStats:
         
         return indices_of_terms
 
-    def update_term_document_matrix_row(self, row_index: int, term_indices: List[int]) -> None:
-
-        # 首先来看下是个什么样的情况
-        length_of_updating_row = self.tdm_indptr[row_index+1] - self.tdm_indptr[row_index]
-        length_of_new_row = len(term_indices)
-
-        # 如果新的这行比原来那行长
-        if length_of_new_row > length_of_updating_row:
-
-            # 那么就要开辟一些空间
-            spaces_to_extend = length_of_new_row - length_of_updating_row
-            for i in range(spaces_to_extend):
-                self.tdm_indices.insert(self.tdm_indptr[row_index]+1, 0)
-                self.tdm_data.insert(self.tdm_indptr[row_index]+1, 1)
-
-        # 如果新的这行比原来那行短
-        elif length_of_new_row < length_of_updating_row:
-
-            # 那么就要压缩一些空间
-            spaces_to_squeeze = length_of_updating_row - length_of_new_row
-            i = len(self.tdm_indptr) - 1
-            while i > row_index:
-                self.tdm_indptr[i] = self.tdm_indptr[i] - spaces_to_squeeze
-                i = i - 1
-            
-            del self.tdm_indices[(len(self.tdm_indices)-spaces_to_squeeze):len(self.tdm_indices)]
-            del self.tdm_data[(len(self.tdm_data)-spaces_to_squeeze):len(self.tdm_data)]
-
-        # 如果新的这行和原来那行一样长
-        else:
-
-            # 那就没那么多花样
-            pass
-        
-        # 现在正式开始更新 indices 
-        self.tdm_indices[self.tdm_indptr[row_index]:self.tdm_indptr[row_index+1]] = term_indices
-
-        # 如果新的这行是空的
-        if self.tdm_indptr[row_index] == self.tdm_indptr[row_index+1]:
-            # 那就干脆删除这行吧！
-            del self.tdm_indptr[row_index]
-
-    
     # 用一篇文章更新 term-document-matrix
     def add_article(self, article: Article):
-        
-        if article.name in self.article_index:
 
-            # 这时这篇文章已经添加过了，所以我们需要更新 term_document_matrix
-            # 怎么更新呢？
+        # 先为这篇文章分配一个编号
+        id_of_this_article = len(self.article_index)
 
-            # 首先确定要更新 term_document_matrix 的哪一行
-            row_index = self.article_index[article.name]
+        # 然后更新 article_name -> index 的映射
+        self.article_index[article.name] = id_of_this_article
 
-            # 然后确定那一行要更新成什么样的值
-            that_indices = self.get_term_indexes(article.terms)
+        # 然后更新 index -> article_name 的映射
+        self.index_article[id_of_this_article] = article.name
 
-            # 确定好后就去更新吧！
-            self.update_term_document_matrix_row(row_index, that_indices)
+        # 并且正常计算 term_document_matrix 的新的一行
+        that_indices = self.get_term_indexes(article.terms)
 
-        else:
-
-            # 这说明这篇文章之前还没有被添加进来过
-
-            # 那就先为这篇文章分配一个编号
-            id_of_this_article = len(self.article_index)
-
-            # 然后更新 article_name -> index 的映射
-            self.article_index[article.name] = id_of_this_article
-
-            # 然后更新 index -> article_name 的映射
-            self.index_article[id_of_this_article] = article.name
-
-            # 并且正常计算 term_document_matrix 的新的一行
-            that_indices = self.get_term_indexes(article.terms)
-
-            # 并且正常更新 term_index 与 index_term
-            self.append_new_row_in_term_document_matrix(that_indices)
+        # 并且正常更新 term_index 与 index_term
+        self.append_new_row_in_term_document_matrix(that_indices)
         
     
     def add_articles(self, articles: List[Article]):
@@ -157,7 +97,7 @@ class ArticleStats:
             self.add_article(article)
     
     # 获取 term-document-matrix 的稀疏矩阵表示
-    def get_term_document_matrix(self):
+    def get_term_document_matrix(self) -> csr_matrix:
         
         data = self.tdm_data
         indices = self.tdm_indices
@@ -165,27 +105,6 @@ class ArticleStats:
         
         return csr_matrix((data, indices, indptr), dtype=int)
     
-    # term_indexes: { 'a': 10, 'b': 2, 'c': 9, 'e': 7 }
-    # terms:   [ 'c', 'a',  'a', 'b', 'b', 'e', 'b' ]
-    # indexes: [  9,  10,   10,   2,   2,   7,   2  ]
-    def terms_to_indexes(self, terms: List[str]) -> List[int]:
-        
-        nterms = len(self.term_index)
-        indexes = list()
-        for term in terms:
-            indexes.append(self.term_index.get(term, randint(0, nterms-1)))
-        
-        return indexes
-    
-    def terms_to_new_row(self, terms: List[str]) -> np.ndarray:
-        
-        indices = np.array(self.terms_to_indexes(terms))
-        data = np.ones(indices.shape)
-        indptr = [0, indices.shape[0]]
-        
-        new_row = csr_matrix((data, indices, indptr), shape=(1, len(self.term_index), ))
-        
-        return new_row.toarray()
 
 # 提供一套分析工具用于从 term_document_matrix 中发掘信息
 class Analyzer:
@@ -212,44 +131,31 @@ class Analyzer:
         self.doc_matrix = term_document_matrix
     
     # compute term frequency 
-    def compute_tf(self) -> None:
+    def __compute_tf(self) -> None:
         
-        doc_matrix = self.doc_matrix
-        self.tf = doc_matrix.multiply(1/doc_matrix.sum(axis=1))
+        doc_matrix = self.doc_matrix.toarray()
+        self.tf = doc_matrix / np.atleast_2d(doc_matrix.sum(axis=1)).T
         
     # compute inverse document frequency
-    def compute_idf(self) -> None:
-        
-        doc_matrix = self.doc_matrix
-        
-        # (n_x[0], n_y[0]), (n_x[1], n_y[2]), ... 表示非零元素坐标
-        n_x, n_y = doc_matrix.nonzero()
-        print("n_x %s" % (n_x, ))
-        print("n_y %s" % (n_y, ))
-        
-        # 去重
-        s = set()
-        for j in range(len(n_x)):
-            s.add((n_x[j], n_y[j],))
-        
-        n_y = list()
-        for x, y in s:
-            n_y.append(y)
-        print("n_y %s" %(n_y, ))
-        
-        col_indexes, non_zeros_count = np.unique(n_y, return_counts=True)
+    def __compute_idf(self) -> None:
 
-        self.idf = np.log(doc_matrix.shape[0]/non_zeros_count)
-            
+        # 对每个 term, 我要知道有多少篇文章出现了这个 term
+        
+        doc_matrix = self.doc_matrix.toarray()
+
+        indicator = np.ones_like(doc_matrix, dtype=np.float32)
+        indicator[doc_matrix == 0] = 0
+        
+        idf = np.sum(indicator, axis=0)
+        n_articles = doc_matrix.shape[0]
+        self.idf = np.log(n_articles/idf)
+
     def compute_tf_idf(self) -> None:
-        
-        tf = self.tf
-        idf = self.idf
 
-        print(tf.shape)
-        print(idf.shape)
+        self.__compute_tf()
+        self.__compute_idf()
         
-        self.tf_idf: csr_matrix = tf.multiply(idf)
+        self.tf_idf = self.tf * self.idf
         
     def compute_svd_from_tf_idf(self, k = 0) -> None:
 
