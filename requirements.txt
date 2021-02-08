@@ -1,0 +1,9 @@
+pkuseg
+regex
+numpy
+pandas
+tabulate
+tqdm
+fastapi
+pydantic
+uvicorn

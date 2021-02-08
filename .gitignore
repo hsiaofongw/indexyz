@@ -1,7 +1,6 @@
 termdocmatrix
 summaries
 .ipynb_checkpoints
-*.txt
 __pycache__
 data/articles
 mongodb
