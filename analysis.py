@@ -90,7 +90,7 @@ class NameSpace:
         
     
     def add_articles(self, articles: List[Article]):
-        for i in tqdm(range(len(articles))):
+        for i in range(len(articles)):
             article = articles[i]
             self.add_article(article)
     
@@ -105,7 +105,7 @@ class NameSpace:
     
 
 # 提供一套分析工具用于从 term_document_matrix 中发掘信息
-def compute_tf_idf(doc_matrix: sparse.csr_matrix) -> np.ndarray:
+def compute_tf_idf(doc_matrix: sparse.csr_matrix) -> sparse.csr_matrix:
 
     # 假设这里的 doc_matrix 已经是行和为 1，那么就只需计算 idf
 
@@ -118,6 +118,8 @@ def compute_tf_idf(doc_matrix: sparse.csr_matrix) -> np.ndarray:
     # 有些列可能全为 0，所以
     indicator = np.zeros(shape=(1, doc_matrix.shape[1],), dtype=np.float32)
     indicator[0, nonzero_cols] = nonzero_col_appearences[:]
+    n_articles = doc_matrix.shape[0]
+    indicator = np.log(n_articles/indicator)
 
     # 此处为按元素乘
     tf_idf = doc_matrix.multiply(indicator)
