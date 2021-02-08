@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import sparse
-from typing import Tuple, List
+from typing import Tuple, List, Dict
 from tqdm import tqdm
 
 class Article:
@@ -8,6 +8,9 @@ class Article:
     def __init__(self, name: str = '', terms: List[str] = []):
         self.name = name
         self.terms = terms
+
+    def __repr__(self) -> str:
+        return f"Article(name={self.name}, n_terms={len(self.terms)})"
 
 # 根据每一篇 article 所包含的 terms 计算出 term_document_matrix
 class NameSpace:
@@ -122,7 +125,53 @@ def compute_tf_idf(doc_matrix: sparse.csr_matrix) -> sparse.csr_matrix:
     indicator = np.log(n_articles/indicator)
 
     # 此处为按元素乘
-    tf_idf = doc_matrix.multiply(indicator)
+    tf_idf = sparse.csr_matrix(doc_matrix.multiply(indicator))
 
     return tf_idf
+
+
+class Searcher:
+
+    def __init__(
+        self,
+        svd_u: np.ndarray,
+        svd_s: np.ndarray,
+        svd_vh: np.ndarray
+    ) -> None:
+        self.u = svd_u.copy()
+        self.s = np.diag(svd_s)
+        self.vh = svd_vh.copy()
+
+        self.doc_coords = self.u @ self.s
     
+    def pairwise_cosine_similarities(self, xs: np.ndarray, ys: np.ndarray) -> np.ndarray:
+        n_samples_x = xs.shape[0]
+        n_samples_y = ys.shape[0]
+
+        xs = xs / (np.linalg.norm(xs, axis=1).reshape(n_samples_x, 1))
+        ys = ys / (np.linalg.norm(ys, axis=1).reshape(n_samples_y, 1))
+        cosines = xs @ (ys.T)
+
+        return cosines
+    
+    def sort_index_by_cosine_similarity(self, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        x = np.atleast_2d(x)
+        if x.shape[0] > x.shape[1]:
+            x = x.T
+
+        cosines = self.pairwise_cosine_similarities(x, self.doc_coords).flatten()
+        article_indexes = np.arange(0, self.doc_coords.shape[0])
+        sort_indexes = np.argsort(-cosines)
+
+        return (
+            article_indexes[sort_indexes],
+            cosines[sort_indexes],
+        )
+        
+    def make_query(self, terms: List[str], term_index: Dict[str, int]) -> np.ndarray:
+        query_term_indexes = [term_index.get(term, 0) for term in terms]
+        query_row = np.zeros(shape=(1, self.vh.shape[1],), dtype=np.float32)
+        query_row[0, query_term_indexes] = 1
+        query_row = query_row @ self.vh.T
+
+        return query_row
