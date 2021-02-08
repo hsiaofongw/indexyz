@@ -1,43 +1,78 @@
-from typing import Optional, List
-
-from fastapi import FastAPI, Header, status
-from pydantic import BaseModel
+import pymongo
+from analysis import Article
+from analysis import NameSpace as QuerySpace
+from analysis import compute_tf_idf
+from scipy.sparse.linalg import svds
+from fastapi.encoders import jsonable_encoder
+from fastapi import FastAPI, status
+from model import *
 
 from datetime import datetime
 
-class Entry(BaseModel):
-    name_of_entry: str
-    terms: List[str]
+global_state = dict()
+global_state['count'] = 0
 
-class NameSpace(BaseModel):
-    name_of_namespace: str
-    entries: List[Entry]
-
-class Query(BaseModel):
-    words: Optional[List[str]] = [""]
-    sentence: Optional[str] = ""
+def get_db():
+    dbname = "indexyz"
+    client = pymongo.MongoClient(f"mongodb://127.0.0.1/{dbname}")
+    db = client.indexyz
+    return db
 
 app = FastAPI()
 
 @app.get("/status")
 async def get_status():
 
+    global global_state
+    global_state['count'] = global_state['count'] + 1
+
     return {
-        "number_of_namespaces": 14,
-        "namespaces": ['ns1', 'ns2'],
-        "server_started_at": "when"
+        "count": global_state['count']
     }
 
 @app.post("/namespaces/", status_code=status.HTTP_201_CREATED)
 async def create_namespace(ns: NameSpace):
 
+    db = get_db()
+    namespaces = db.namespaces
+    ns = jsonable_encoder(ns)
+
+    query_space = QuerySpace()
+    for entry in ns['entries']:
+        article = Article()
+        article.name = entry['name_of_entry']
+        article.terms = entry['terms']
+        query_space.add_article(article)
+
+    doc_matrix = query_space.get_term_document_matrix()
+    tf_idf = compute_tf_idf(doc_matrix)
+    u, s, vh = svds(tf_idf, k=min(tf_idf.shape)-1)
+
+    u = u.tolist()
+    s = s.tolist()
+    vh = vh.tolist()
+    term_index = query_space.term_index
+    index_term = query_space.index_term
+    article_index = query_space.article_index
+    index_article = query_space.index_article
+
+    global global_state
+
+    global_state['query_object']['u'] = u
+    global_state['query_object']['s'] = s
+    global_state['query_object']['vh'] = vh
+    global_state['query_object']['term_index'] = term_index
+    global_state['query_object']['index_term'] = index_term
+    global_state['query_object']['article_index'] = article_index
+    global_state['query_object']['index_article'] = index_article
+
     now = datetime.utcnow()
-    name = ns.name_of_namespace
-    entries = ns.entries
+    ns['created_at'] = now
+
+    namespace_id = namespaces.insert_one(ns).inserted_id
 
     return {
-        "message": "namespace created.",
-        "name_of_namespace": name,
+        "namespace_object_id": str(namespace_id)
     }
 
 @app.delete("/namespaces/{name_of_namespace}")
