@@ -134,6 +134,8 @@ def compute_tf_idf(doc_matrix: sparse.csr_matrix) -> sparse.csr_matrix:
 
 class Searcher:
 
+    searcher_id: str = str()
+
     def __init__(
         self,
         svd_u: np.ndarray,
@@ -159,6 +161,9 @@ class Searcher:
 
         self.doc_coords = self.u @ self.s
     
+    def __repr__(self) -> str:
+        return f"Searcher(id = {self.searcher_id})"
+    
     def dumps(self) -> str:
         return json.dumps({
             'svd_u': self.u.tolist(),
@@ -173,9 +178,11 @@ class Searcher:
     @classmethod
     def from_data(cls, data: str) -> Searcher:
         searcher_object = json.loads(data)
+        searcher_object['svd_u'] = np.array(searcher_object['svd_u'])
+        searcher_object['svd_s'] = np.array(searcher_object['svd_s'])
+        searcher_object['svd_vh'] = np.array(searcher_object['svd_vh'])
         searcher = Searcher(**searcher_object)
         return searcher
-
     
     def pairwise_cosine_similarities(self, xs: np.ndarray, ys: np.ndarray) -> np.ndarray:
         n_samples_x = xs.shape[0]

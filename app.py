@@ -1,4 +1,5 @@
 from bson.objectid import ObjectId
+from fastapi.param_functions import Query
 import pymongo
 from pymongo.son_manipulator import NamespaceInjector
 from analysis import Article
@@ -19,7 +20,7 @@ class GlobalState:
     def __init__(self) -> None:
         self.started_at = datetime.utcnow()
         self.request_counts = 0
-        self.query_objects: List[Searcher] = []
+        self.searchers: List[Searcher] = []
 
     def get_db(self):
         dbname = "indexyz"
@@ -103,6 +104,29 @@ async def list_searchers(status_code=status.HTTP_200_OK):
     
     return results
 
+@app.post("/searchers/{searcher_id}")
+async def load_searcher(
+    searcher_id: str = Query(default="", min_length=12, max_length=12), 
+    response: Response = Response()
+):
+    db = state.get_db()
+    searcher_object = db.searchers.find_one({
+        '_id': ObjectId(searcher_id)
+    })
+    if searcher_object is None:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {
+            'message': 'searcher not found.'
+        }
+    searcher = Searcher.from_data(searcher_object['searcher_data'])
+    searcher.searcher_id = searcher_id
+    state.searchers.append(searcher)
+
+    return {
+        'message': 'searcher is now loaded.',
+        'loaded_searcher_ids': [x.searcher_id for x in state.searchers]
+    }
+
 @app.post("/namespaces/", status_code=status.HTTP_201_CREATED)
 async def create_namespace(ns: NameSpaceModel):
 
@@ -158,7 +182,7 @@ async def delete_namespace_by_name(name_of_namespace: str):
 async def make_query_by_words(words_query: WordsQueryModel, response: Response):
 
     # pass
-    if len(state.query_objects) == 0:
+    if len(state.searchers) == 0:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {
             'message': 'no query object available, please upload an namespace.'
