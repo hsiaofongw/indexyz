@@ -93,7 +93,10 @@ async def list_searchers(status_code=status.HTTP_200_OK):
     for searcher_object in searcher_objects_cursor:
         searcher_id = searcher_object['_id']
         base_namespace_id = searcher_object['base_namespace_id']
-        base_namespace_name = db.namespaces.find_one({'_id': base_namespace_id})['name_of_namespace']
+        ns = db.namespaces.find_one({'_id': base_namespace_id})
+        base_namespace_name = ""
+        if ns:
+            base_namespace_name = ns['name_of_namespace']
 
         results.append({
             '_id': str(searcher_id),
@@ -102,6 +105,17 @@ async def list_searchers(status_code=status.HTTP_200_OK):
         })
     
     return results
+
+@app.delete("/searchers/{searcher_id}")
+async def delete_searcher_by_id(searcher_id: str, status_code=status.HTTP_202_ACCEPTED):
+    db = state.get_db()
+    result = db.searchers.delete_one(
+        { '_id': ObjectId(searcher_id) }
+    )
+
+    return {
+        'deleted_count': result.deleted_count
+    }
 
 @app.post("/searchers/{searcher_id}")
 async def load_searcher(
@@ -216,19 +230,17 @@ async def add_entries_to_namespace(
         'modified_count': result.modified_count
     }
 
-@app.delete("/namespaces/{name_of_namespace}")
-async def delete_namespace_by_name(name_of_namespace: str):
+@app.delete("/namespaces/{namespace_id}")
+async def delete_namespace_by_id(namespace_id: str = Query("", min_length=24, max_length=24)):
 
     db = state.get_db()
     namespaces = db.namespaces
     result = namespaces.delete_one({
-        'name_of_namespace': name_of_namespace
+        '_id': ObjectId(namespace_id)
     })
 
     return {
-        "message": "namespace deleted.",
-        "deleted_count": result.deleted_count,
-        "name_of_namespace": name_of_namespace
+        "deleted_count": result.deleted_count
     }
 
 @app.delete("/namespaces/{namespace_id}/{entry_name}", status_code=status.HTTP_202_ACCEPTED)
