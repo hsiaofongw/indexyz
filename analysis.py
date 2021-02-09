@@ -1,3 +1,5 @@
+from __future__ import annotations
+import json
 import numpy as np
 from scipy import sparse
 from typing import Tuple, List, Dict
@@ -13,7 +15,7 @@ class Article:
         return f"Article(name={self.name}, n_terms={len(self.terms)})"
 
 # 根据每一篇 article 所包含的 terms 计算出 term_document_matrix
-class NameSpace:
+class TermDocumentMatrix:
     
     def __init__(self):
         
@@ -143,7 +145,12 @@ class Searcher:
         index_article: Dict[int, str]
     ) -> None:
         self.u = svd_u.copy()
-        self.s = np.diag(svd_s)
+
+        if len(svd_s.shape) == 1:
+            self.s = np.diag(svd_s)
+        else:
+            self.s = svd_s
+
         self.vh = svd_vh.copy()
         self.term_index = term_index
         self.index_term = index_term
@@ -151,6 +158,24 @@ class Searcher:
         self.index_article = index_article
 
         self.doc_coords = self.u @ self.s
+    
+    def dumps(self) -> str:
+        return json.dumps({
+            'svd_u': self.u.tolist(),
+            'svd_s': self.s.tolist(),
+            'svd_vh': self.vh.tolist(),
+            'term_index': self.term_index,
+            'index_term': self.index_term,
+            'article_index': self.article_index,
+            'index_article': self.index_article
+        })
+    
+    @classmethod
+    def from_data(cls, data: str) -> Searcher:
+        searcher_object = json.loads(data)
+        searcher = Searcher(**searcher_object)
+        return searcher
+
     
     def pairwise_cosine_similarities(self, xs: np.ndarray, ys: np.ndarray) -> np.ndarray:
         n_samples_x = xs.shape[0]

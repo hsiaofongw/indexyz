@@ -1,6 +1,6 @@
 import numpy as np
 import unittest
-from analysis import Article, NameSpace, compute_tf_idf
+from analysis import Article, TermDocumentMatrix, compute_tf_idf
 
 class TestAnalyzer(unittest.TestCase):
 
@@ -38,7 +38,7 @@ class TestAnalyzer(unittest.TestCase):
         self.articles = articles
 
     def test_get_term_document_matrix(self):
-        ns = NameSpace()
+        ns = TermDocumentMatrix()
         ns.add_articles(self.articles)
         doc_matrix = ns.get_term_document_matrix()
         doc_matrix = doc_matrix.toarray()
@@ -47,7 +47,7 @@ class TestAnalyzer(unittest.TestCase):
         self.assertAlmostEqual(max_error, 0.0, delta=epsilon)
 
     def test_compute_tf_idf(self):
-        ns = NameSpace()
+        ns = TermDocumentMatrix()
         ns.add_articles(self.articles)
         doc_matrix = ns.get_term_document_matrix()
         tf_idf = compute_tf_idf(doc_matrix)
