@@ -1,7 +1,6 @@
 from bson.objectid import ObjectId
 from fastapi.param_functions import Query
 import pymongo
-from pymongo.son_manipulator import NamespaceInjector
 from analysis import Article
 from analysis import TermDocumentMatrix
 from analysis import compute_tf_idf
@@ -191,6 +190,32 @@ async def list_namespaces():
     
     return results
 
+@app.post("/namespaces/{namespace_id}/", status_code=status.HTTP_202_ACCEPTED)
+async def add_entries_to_namespace(
+    entries: List[EntryModel],
+    response: Response,
+    namespace_id: str = Query(" ", min_length=24, max_length=24),
+):
+    db = state.get_db()
+    ns_object = db.namespaces.find_one({'_id': ObjectId(namespace_id)})
+    if ns_object is None:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {
+            'message': 'no corresponding ns'
+        }
+    
+    ns = NameSpaceModel(**ns_object)
+    ns.entries = ns.entries + entries
+    entries_object = jsonable_encoder(ns.entries)
+
+    result = db.namespaces.update_one({'_id': ObjectId(namespace_id)}, {
+        "$set": {"entries": entries_object}
+    })
+
+    return {
+        'modified_count': result.modified_count
+    }
+
 @app.delete("/namespaces/{name_of_namespace}")
 async def delete_namespace_by_name(name_of_namespace: str):
 
@@ -205,6 +230,48 @@ async def delete_namespace_by_name(name_of_namespace: str):
         "deleted_count": result.deleted_count,
         "name_of_namespace": name_of_namespace
     }
+
+@app.delete("/namespaces/{namespace_id}/{entry_name}", status_code=status.HTTP_202_ACCEPTED)
+async def delete_entry_by_name(
+    entry_name: str,
+    response: Response,
+    namespace_id: str = Query("", min_length=24, max_length=24),
+):
+
+    db = state.get_db()
+    ns_object = db.namespaces.find_one(
+        { '_id': ObjectId(namespace_id)}
+    )
+
+    if ns_object is None:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {
+            'message': 'no such namespace.'
+        }
+    
+    ns = NameSpaceModel(**ns_object)
+    n_entries = len(ns.entries)
+    for i in range(n_entries):
+        entry = ns.entries[i]
+        if entry.name_of_entry == entry_name:
+            del ns.entries[i]
+
+            entries = jsonable_encoder(ns.entries)
+
+            result = db.namespaces.update_one(
+                {'_id': ObjectId(namespace_id)}, 
+                {'$set': {'entries': entries}}
+            )
+
+            return {
+                'modified_count': result.modified_count
+            }
+    
+    response.status_code = status.HTTP_404_NOT_FOUND
+    return {
+        'message': 'no entry match.'
+    }
+
 
 @app.post("/")
 async def make_query_by_words(words_query: WordsQueryModel, response: Response):

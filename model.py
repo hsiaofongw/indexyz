@@ -5,7 +5,7 @@ from datetime import datetime
 class EntryModel(BaseModel):
     name_of_entry: str
     terms: Optional[List[str]] = Field(default=[], min_items=1)
-    content: Optional[str] = Field(default="", min_length=1)
+    content: Optional[str] = Field(default="")
 
 class NameSpaceModel(BaseModel):
     name_of_namespace: str
