@@ -106,7 +106,7 @@ async def list_searchers(status_code=status.HTTP_200_OK):
 
 @app.post("/searchers/{searcher_id}")
 async def load_searcher(
-    searcher_id: str = Query(default="", min_length=12, max_length=12), 
+    searcher_id: str = Query(default="", min_length=24, max_length=24), 
     response: Response = Response()
 ):
     db = state.get_db()
@@ -125,6 +125,34 @@ async def load_searcher(
     return {
         'message': 'searcher is now loaded.',
         'loaded_searcher_ids': [x.searcher_id for x in state.searchers]
+    }
+
+@app.get("/loadedsearchers")
+async def list_loaded_searchers():
+    results = {
+        'loaded_searcher_ids': [x.searcher_id for x in state.searchers]
+    }
+    return results
+
+@app.post("/unloadsearcher/{searcher_id}")
+async def unload_searcher(
+    searcher_id: str = Query("", min_length=24, max_length=24),
+    response: Response = Response()
+):
+    
+    n_searchers = len(state.searchers)
+    for i in range(n_searchers):
+        searcher = state.searchers[i]
+        if searcher.searcher_id == searcher_id:
+            del state.searchers[i]
+
+            return {
+                'message': 'deleted one.'
+            }
+
+    response.status_code = status.HTTP_404_NOT_FOUND
+    return {
+        'message': 'no such searcher.'
     }
 
 @app.post("/namespaces/", status_code=status.HTTP_201_CREATED)
