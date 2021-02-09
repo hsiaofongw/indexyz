@@ -216,10 +216,11 @@ async def make_query_by_words(words_query: WordsQueryModel, response: Response):
             'message': 'no query object available, please upload an namespace.'
         }
     
-    query_object = state.query_objects[-1]
-    q = query_object.make_query(words_query.words)
-    indexes, cosines =  query_object.sort_index_by_cosine_similarity(q)
-    name_of_entries = [query_object.index_article[i] for i in indexes.tolist()]
+    searcher = state.searchers[-1]
+    q = searcher.make_query(words_query.words)
+    indexes, cosines =  searcher.sort_index_by_cosine_similarity(q)
+
+    name_of_entries = [searcher.index_article[str(i)] for i in indexes.tolist()]
     cosines = cosines.tolist()
     cosines = [0 if isnan(x) else x for x in cosines]
     
