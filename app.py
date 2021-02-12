@@ -149,7 +149,7 @@ async def list_loaded_searchers():
 
 @app.post("/unloadsearcher/{searcher_id}")
 async def unload_searcher(
-    searcher_id: str = Query("", min_length=24, max_length=24),
+    searcher_id: str,
     response: Response = Response()
 ):
     
@@ -166,122 +166,6 @@ async def unload_searcher(
     response.status_code = status.HTTP_404_NOT_FOUND
     return {
         'message': 'no such searcher.'
-    }
-
-@app.post("/namespaces/", status_code=status.HTTP_201_CREATED)
-async def create_namespace(ns: NameSpaceModel):
-
-    db = state.get_db()
-    namespaces = db.namespaces
-
-    for entry in ns.entries:
-        if len(entry.content) >= 1:
-            entry.terms = entry.terms + cutter(entry.content)
-
-    now = datetime.utcnow()
-    ns = jsonable_encoder(ns)
-    ns['created_at'] = now
-
-    namespace_id = namespaces.insert_one(ns).inserted_id
-
-    return {
-        "namespace_object_id": str(namespace_id)
-    }
-
-@app.get("/namespaces")
-async def list_namespaces():
-
-    db = state.get_db()
-    namespaces = db.namespaces.find({})
-
-    results = []
-    for x in namespaces:
-        results.append({
-            'object_id': str(x['_id']),
-            'created_at': str(x['created_at']),
-            'name_of_namespace': x['name_of_namespace']
-        })
-    
-    return results
-
-@app.post("/namespaces/{namespace_id}/", status_code=status.HTTP_202_ACCEPTED)
-async def add_entries_to_namespace(
-    entries: List[EntryModel],
-    response: Response,
-    namespace_id: str = Query(" ", min_length=24, max_length=24),
-):
-    db = state.get_db()
-    ns_object = db.namespaces.find_one({'_id': ObjectId(namespace_id)})
-    if ns_object is None:
-        response.status_code = status.HTTP_404_NOT_FOUND
-        return {
-            'message': 'no corresponding ns'
-        }
-    
-    ns = NameSpaceModel(**ns_object)
-    ns.entries = ns.entries + entries
-    entries_object = jsonable_encoder(ns.entries)
-
-    result = db.namespaces.update_one({'_id': ObjectId(namespace_id)}, {
-        "$set": {"entries": entries_object}
-    })
-
-    return {
-        'modified_count': result.modified_count
-    }
-
-@app.delete("/namespaces/{namespace_id}")
-async def delete_namespace_by_id(namespace_id: str = Query("", min_length=24, max_length=24)):
-
-    db = state.get_db()
-    namespaces = db.namespaces
-    result = namespaces.delete_one({
-        '_id': ObjectId(namespace_id)
-    })
-
-    return {
-        "deleted_count": result.deleted_count
-    }
-
-@app.delete("/namespaces/{namespace_id}/{entry_name}", status_code=status.HTTP_202_ACCEPTED)
-async def delete_entry_by_name(
-    entry_name: str,
-    response: Response,
-    namespace_id: str = Query("", min_length=24, max_length=24),
-):
-
-    db = state.get_db()
-    ns_object = db.namespaces.find_one(
-        { '_id': ObjectId(namespace_id)}
-    )
-
-    if ns_object is None:
-        response.status_code = status.HTTP_404_NOT_FOUND
-        return {
-            'message': 'no such namespace.'
-        }
-    
-    ns = NameSpaceModel(**ns_object)
-    n_entries = len(ns.entries)
-    for i in range(n_entries):
-        entry = ns.entries[i]
-        if entry.name_of_entry == entry_name:
-            del ns.entries[i]
-
-            entries = jsonable_encoder(ns.entries)
-
-            result = db.namespaces.update_one(
-                {'_id': ObjectId(namespace_id)}, 
-                {'$set': {'entries': entries}}
-            )
-
-            return {
-                'modified_count': result.modified_count
-            }
-    
-    response.status_code = status.HTTP_404_NOT_FOUND
-    return {
-        'message': 'no entry match.'
     }
 
 

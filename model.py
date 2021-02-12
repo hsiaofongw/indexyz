@@ -6,10 +6,8 @@ class EntryModel(BaseModel):
     name_of_entry: str
     terms: Optional[List[str]] = Field(default=[], min_items=1)
     content: Optional[str] = Field(default="")
-
-class NameSpaceModel(BaseModel):
-    name_of_namespace: str
-    entries: List[EntryModel]
+    description: Optional[str]
+    title: Optional[str]
 
 class WordsQueryModel(BaseModel):
     words: List[str] = Field(min_items=1)

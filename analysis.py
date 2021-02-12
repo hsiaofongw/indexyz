@@ -4,6 +4,9 @@ import numpy as np
 from scipy import sparse
 from typing import Tuple, List, Dict
 from tqdm import tqdm
+import pandas as pd
+import gzip
+import tempfile
 
 class Article:
 
@@ -142,9 +145,7 @@ class Searcher:
         svd_s: np.ndarray,
         svd_vh: np.ndarray,
         term_index: Dict[str, int],
-        index_term: Dict[int, str],
-        article_index: Dict[str, int],
-        index_article: Dict[int, str]
+        table: pd.DataFrame
     ) -> None:
         self.u = svd_u.copy()
 
@@ -155,11 +156,10 @@ class Searcher:
 
         self.vh = svd_vh.copy()
         self.term_index = term_index
-        self.index_term = index_term
-        self.article_index = article_index
-        self.index_article = index_article
 
         self.doc_coords = self.u @ self.s
+        
+        self.table = table
     
     def __repr__(self) -> str:
         return f"Searcher(id = {self.searcher_id})"
@@ -170,9 +170,6 @@ class Searcher:
             'svd_s': self.s.tolist(),
             'svd_vh': self.vh.tolist(),
             'term_index': self.term_index,
-            'index_term': self.index_term,
-            'article_index': self.article_index,
-            'index_article': self.index_article
         })
     
     @classmethod
@@ -216,3 +213,15 @@ class Searcher:
         query_row = query_row @ self.vh.T
 
         return query_row
+    
+    def search(self, terms: List[str]) -> pd.DataFrame:
+
+        query = self.make_query(terms)
+        results = self.sort_index_by_cosine_similarity(query)
+        
+        result_table = self.table.copy()
+
+        result_table = result_table.iloc[results[0], :]
+        result_table['cosine'] = results[1]
+        
+        return result_table
