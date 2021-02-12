@@ -1,6 +1,6 @@
 from analysis import Searcher
-import json
 from fastapi import FastAPI
+from fastapi.encoders import jsonable_encoder
 
 svd_filename = 'searcher_svds.npz'
 vocabulary_filename = 'vocabulary.gz'
@@ -16,10 +16,13 @@ del searcher.table['terms']
 
 app = FastAPI()
 
-@app.get("/query/{query}")
-def query(query: str):
+@app.get("/")
+def query():
 
+    query = "数据挖掘 机器学习"
     result = searcher.query(query)
-    result = result.iloc[0:100, :]
+    result = result[0:9]
 
-    return json.dumps(list(result.T.to_dict().values()), ensure_ascii=False)
+    del result['cosine']
+
+    return jsonable_encoder(result)
