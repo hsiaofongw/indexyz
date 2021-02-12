@@ -6,7 +6,7 @@ from typing import Tuple, List, Dict
 from tqdm import tqdm
 import pandas as pd
 import gzip
-import tempfile
+import json
 
 class Article:
 
@@ -164,22 +164,43 @@ class Searcher:
     def __repr__(self) -> str:
         return f"Searcher(id = {self.searcher_id})"
     
-    def dumps(self) -> str:
-        return json.dumps({
-            'svd_u': self.u.tolist(),
-            'svd_s': self.s.tolist(),
-            'svd_vh': self.vh.tolist(),
-            'term_index': self.term_index,
-        })
+    def dump(
+        self, 
+        svd_filename: str, 
+        vocabulary_filename: str, 
+        web_table_filename: str
+    ) -> None:
+        
+        np.savez_compressed(svd_filename, self.u, np.diag(self.s), self.vh)
+
+        with gzip.open(vocabulary_filename, 'wb') as f:
+            f.write(json.dumps(self.term_index).encode('utf-8'))
+
+        self.table.to_csv(web_table_filename)
+
     
     @classmethod
-    def from_data(cls, data: str) -> Searcher:
-        searcher_object = json.loads(data)
-        searcher_object['svd_u'] = np.array(searcher_object['svd_u'])
-        searcher_object['svd_s'] = np.array(searcher_object['svd_s'])
-        searcher_object['svd_vh'] = np.array(searcher_object['svd_vh'])
-        searcher = Searcher(**searcher_object)
-        return searcher
+    def load(
+        cls, 
+        svd_filename: str,
+        vocabulary_filename: str,
+        web_table_filename: str
+    ) -> Searcher:
+        u, sigma, vh = None, None, None
+        with np.load(svd_filename) as data:
+            u = data['arr_0']
+            sigma = data['arr_1']
+            vh = data['arr_2']
+
+        vocabulary = None
+        with gzip.open(vocabulary_filename, 'rb') as f:
+            vocabulary = json.loads(f.read().decode('utf-8'))
+        
+        table = pd.read_csv(web_table_filename, index_col=0)
+
+        return Searcher(
+            u, sigma, vh, vocabulary, table
+        )
     
     def pairwise_cosine_similarities(self, xs: np.ndarray, ys: np.ndarray) -> np.ndarray:
         n_samples_x = xs.shape[0]
