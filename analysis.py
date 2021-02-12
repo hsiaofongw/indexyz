@@ -7,6 +7,8 @@ from tqdm import tqdm
 import pandas as pd
 import gzip
 import json
+from cut import cutter
+from random import randrange
 
 class Article:
 
@@ -228,7 +230,8 @@ class Searcher:
         
     def make_query(self, terms: List[str]) -> np.ndarray:
 
-        query_term_indexes = [self.term_index.get(term, 0) for term in terms]
+        n_terms = len(self.term_index)
+        query_term_indexes = [self.term_index.get(term, randrange(0, n_terms)) for term in terms]
         query_row = np.zeros(shape=(1, self.vh.shape[1],), dtype=np.float32)
         query_row[0, query_term_indexes] = 1
         query_row = query_row @ self.vh.T
@@ -246,3 +249,9 @@ class Searcher:
         result_table['cosine'] = results[1]
         
         return result_table
+    
+    def query(self, sentence: str) -> pd.DataFrame:
+
+        terms = cutter(sentence)
+
+        return self.search(terms)
